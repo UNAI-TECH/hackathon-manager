@@ -1,11 +1,44 @@
 /**
- * PEOPLE DRIVE MANAGER - CONSOLIDATED BACKEND SCRIPT
- * For Phase 1 & Phase 2 Specific Folders for Individual/Team
- * Includes: Status Updates (Approve/Reject) with HR Remarks and Email Notifications
+ * CODEKARX HACKATHON - FINAL BACKEND (v4)
+ * Supports: Unique Codes, Drive Organization, Multi-Member Emails, 
+ * and Phase 2 Automated Notifications.
+ * [MODIFIED]: Added 'track' and 'phone' to APP_HEADERS for frontend consistency.
  */
 
 const APP_SHEET_NAME = "Applications";
 const SETTINGS_SHEET_NAME = "Settings";
+const ROOT_FOLDER_NAME = "Codekarx_Submissions";
+
+// Mandatory Headers for the Applications Sheet
+const APP_HEADERS = [
+  "registrationId", 
+  "transactionId", 
+  "projectName", 
+  "status", 
+  "remarks", 
+  "firstName", 
+  "lastName", 
+  "email", 
+  "phone",           // [ADDED]
+  "track",           // [ADDED]
+  "registrationType", 
+  "teamName", 
+  "teamLeaderName", 
+  "teamLeaderEmail",
+  "member1Email",
+  "member2Email",
+  "member3Email",
+  "member4Email",
+  "projectDescription", 
+  "pptUrl",          
+  "readmeUrl",       
+  "sourceCodeUrl",   
+  "phase1SubmittedAt",
+  "githubRepoLink",
+  "phase2SubmittedAt",
+  "isCompleted",
+  "collegeCompany"   
+];
 
 function doGet(e) {
     try {
@@ -24,366 +57,270 @@ function doPost(e) {
     }
 }
 
+/**
+ * Helper to get or create a folder structure
+ */
+function getTargetFolder(phaseNum, data) {
+    let root = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+    let rootFolder = root.hasNext() ? root.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
+    
+    let phaseName = "Phase " + phaseNum;
+    let phase = rootFolder.getFoldersByName(phaseName);
+    let phaseFolder = phase.hasNext() ? phase.next() : rootFolder.createFolder(phaseName);
+    
+    // Sub-folder name: [Name] - [College]
+    const userName = data.registrationType === "Individual" 
+      ? (data.firstName || "Unknown") 
+      : (data.teamName || "Team");
+    const college = data.collegeCompany || "NoCollege";
+    const subFolderName = `${userName} - ${college}`;
+    
+    let sub = phaseFolder.getFoldersByName(subFolderName);
+    let subFolder = sub.hasNext() ? sub.next() : phaseFolder.createFolder(subFolderName);
+    
+    return subFolder;
+}
+
+/**
+ * Decodes base64 and saves to folder
+ */
+function saveBase64File(folder, fileObj) {
+    if (!fileObj || !fileObj.base64) return null;
+    const decoded = Utilities.base64Decode(fileObj.base64);
+    const blob = Utilities.newBlob(decoded, fileObj.type, fileObj.name);
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return file.getUrl();
+}
+
 function handleRequest(payload) {
     const action = payload.action;
     const data = payload.data || payload;
+    const files = payload.files || {};
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // --- ACTION: GET APPLICATIONS ---
+    function getOrInitSheet(name, headers) {
+        let sheet = ss.getSheetByName(name);
+        if (!sheet) {
+            sheet = ss.getSheetByName("Sheet1") || ss.insertSheet(name);
+            if (sheet.getName() !== name) sheet.setName(name);
+        }
+        if (sheet.getLastRow() === 0) {
+            sheet.appendRow(headers);
+        } else if (name === APP_SHEET_NAME) {
+            const existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+            headers.forEach(h => {
+              if (existingHeaders.indexOf(h) === -1) {
+                sheet.getRange(1, existingHeaders.length + 1).setValue(h);
+                existingHeaders.push(h);
+              }
+            });
+        }
+        return sheet;
+    }
+
+    const appSheet = getOrInitSheet(APP_SHEET_NAME, APP_HEADERS);
+    const settingsSheet = getOrInitSheet(SETTINGS_SHEET_NAME, ["currentPhase"]);
+
     if (action === "get_applications") {
-        const sheet = ss.getSheetByName(APP_SHEET_NAME);
-        if (!sheet) return createResponse({ result: "success", data: [] });
-        const rawData = sheet.getDataRange().getValues();
+        const rawData = appSheet.getDataRange().getValues();
         if (rawData.length <= 1) return createResponse({ result: "success", data: [] });
         const headers = rawData[0];
         const rows = rawData.slice(1);
         const applications = rows.map(row => {
             let obj = {};
             headers.forEach((header, i) => {
-                const key = header.toString().trim();
-                obj[key] = row[i];
+                obj[header.toString().trim()] = row[i];
             });
-            // Ensure _id exists for frontend
-            obj._id = obj.registrationId; 
+            obj._id = (obj.registrationId || obj.transactionId || "").toString(); 
+            // Consistency fallbacks
+            if (obj.department && !obj.track) obj.track = obj.department;
             return obj;
         });
         return createResponse({ result: "success", data: applications });
     }
 
-    // --- ACTION: GET APPLICATION BY REG ID ---
     if (action === "get_application_by_regid") {
-        const sheet = ss.getSheetByName(APP_SHEET_NAME);
-        if (!sheet) return createResponse({ result: "error", error: "Sheet not found" });
-        const rawData = sheet.getDataRange().getValues();
+        const rawData = appSheet.getDataRange().getValues();
         const headers = rawData[0];
         const idCol = headers.indexOf("registrationId");
+        const transCol = headers.indexOf("transactionId");
+        const targetId = (data.registrationId || "").toString().trim();
 
         for (let i = 1; i < rawData.length; i++) {
-            if (rawData[i][idCol] === data.registrationId) {
+            if (rawData[i][idCol].toString() === targetId || (transCol !== -1 && rawData[i][transCol].toString() === targetId)) {
                 let obj = {};
-                headers.forEach((header, j) => {
-                    obj[header.toString().trim()] = rawData[i][j];
-                });
+                headers.forEach((h, j) => { obj[h.toString().trim()] = rawData[i][j]; });
+                if (obj.department && !obj.track) obj.track = obj.department;
                 return createResponse({ result: "success", data: obj });
             }
         }
         return createResponse({ result: "error", error: "Candidate not found" });
     }
 
-    // --- ACTION: GET/TOGGLE PHASE ---
     if (action === "get_phase") {
-        let sheet = ss.getSheetByName(SETTINGS_SHEET_NAME);
-        if (!sheet) {
-            sheet = ss.insertSheet(SETTINGS_SHEET_NAME);
-            sheet.appendRow(["currentPhase"]);
-            sheet.appendRow([1]);
-            return createResponse({ result: "success", phase: 1 });
-        }
-        return createResponse({ result: "success", phase: parseInt(sheet.getRange(2, 1).getValue()) || 1 });
+        return createResponse({ result: "success", phase: parseInt(settingsSheet.getRange(2, 1).getValue()) || 1 });
     }
 
-    if (action === "update_phase") {
-        let sheet = ss.getSheetByName(SETTINGS_SHEET_NAME);
-        if (!sheet) {
-            sheet = ss.insertSheet(SETTINGS_SHEET_NAME);
-            sheet.appendRow(["currentPhase"]);
-            sheet.appendRow([data.currentPhase]);
-        } else {
-            sheet.getRange(2, 1).setValue(data.currentPhase);
-        }
-        return createResponse({ result: "success", phase: data.currentPhase });
-    }
-
-    // --- ACTION: UPDATE STATUS & SEND EMAIL ---
-    if (action === "update_status") {
-        const sheet = ss.getSheetByName(APP_SHEET_NAME);
-        if (!sheet) return createResponse({ result: "error", error: "Sheet not found" });
+    if (action === "submit_phase1") {
+        const transactionId = (data.transactionId || "").toString().trim();
+        // [FIX]: Ensure registrationId is always the transactionId if provided
+        const regId = (transactionId || data.registrationId || "REG-" + new Date().getTime()).toString();
         
-        const rawData = sheet.getDataRange().getValues();
+        const folder = getTargetFolder(1, data);
+        if (files.ppt) data.pptUrl = saveBase64File(folder, files.ppt);
+
+        const headers = appSheet.getRange(1, 1, 1, appSheet.getLastColumn()).getValues()[0];
+        const row = headers.map(h => {
+          const key = h.toString().trim();
+          if (data[key] !== undefined) return data[key];
+          if (key === "registrationId") return regId;
+          if (key === "transactionId") return transactionId; // Ensure it's stored
+          if (key === "status") return "Pending";
+          if (key === "phase1SubmittedAt") return new Date();
+          return "";
+        });
+        
+        appSheet.appendRow(row);
+
+        // Notify Team
+        const emails = [];
+        if (data.registrationType === "Individual") {
+          if (data.email) emails.push(data.email);
+        } else {
+          ["teamLeaderEmail", "member1Email", "member2Email", "member3Email", "member4Email"].forEach(f => {
+            if (data[f]) emails.push(data[f]);
+          });
+        }
+
+        const uniqueEmails = [...new Set(emails.filter(e => e && e.trim() !== ""))];
+        if (uniqueEmails.length > 0) {
+           const subject = "Phase 1 Submission Received - Codekarx Hackathon";
+           // [FIX]: Clarified unique code in email
+           const body = `Hi,\n\nSubmission Received! Your Unique Access Code (Transaction ID) is: ${regId}\n\nProject: ${data.projectName}.\n\nIMPORTANT: Use this code to upload Phase 2 documentation later.\n\nBest Regards,\nCodekarx Team`;
+           uniqueEmails.forEach(email => { try { GmailApp.sendEmail(email, subject, body); } catch (e) {} });
+        }
+
+        return createResponse({ result: "success", message: "Phase 1 Submitted", registrationId: regId });
+    }
+
+    if (action === "submit_phase2") {
+        const targetId = (data.registrationId || data.transactionId || "").toString();
+        const rawData = appSheet.getDataRange().getValues();
         const headers = rawData[0];
         const idCol = headers.indexOf("registrationId");
-        const statusCol = headers.indexOf("status");
-        const remarksCol = headers.indexOf("remarks");
+        const transCol = headers.indexOf("transactionId");
+        
+        for (let i = 1; i < rawData.length; i++) {
+           if (rawData[i][idCol].toString() === targetId || rawData[i][transCol].toString() === targetId) {
+              const rowDataObj = {};
+              headers.forEach((h, idx) => rowDataObj[h] = rawData[i][idx]);
 
-        // Use ID or _id from payload
-        const targetId = (data.id || data.registrationId || "").toString();
+              const folder = getTargetFolder(2, rowDataObj);
+              if (files.readme) data.readmeUrl = saveBase64File(folder, files.readme);
+              if (files.finalZip) data.sourceCodeUrl = saveBase64File(folder, files.finalZip);
+
+              const updates = {
+                githubRepoLink: data.githubRepoLink,
+                readmeUrl: data.readmeUrl || rowDataObj.readmeUrl,
+                sourceCodeUrl: data.sourceCodeUrl || rowDataObj.sourceCodeUrl,
+                phase2SubmittedAt: new Date(),
+                isCompleted: "TRUE"
+              };
+
+              Object.keys(updates).forEach(key => {
+                const colIdx = headers.indexOf(key);
+                if (colIdx !== -1) appSheet.getRange(i + 1, colIdx + 1).setValue(updates[key]);
+              });
+
+              return createResponse({ result: "success", message: "Phase 2 Updated" });
+           }
+        }
+        return createResponse({ result: "error", error: "Registration not found" });
+    }
+
+    if (action === "update_status") {
+        const targetId = (data.id || data.registrationId || data.transactionId || "").toString().trim();
+        const rawData = appSheet.getDataRange().getValues();
+        const headers = rawData[0];
+        const idCol = headers.indexOf("registrationId");
+        const transCol = headers.indexOf("transactionId");
 
         for (let i = 1; i < rawData.length; i++) {
-            if (rawData[i][idCol].toString() === targetId.toString()) {
+            const rowRegId = rawData[i][idCol].toString().trim();
+            const rowTransId = transCol !== -1 ? rawData[i][transCol].toString().trim() : "";
+            
+            if (rowRegId === targetId || (rowTransId && rowTransId === targetId)) {
                 const newStatus = data.status;
                 const newRemarks = data.remarks || "";
 
-                // 1. Update Sheet
-                if (statusCol !== -1) sheet.getRange(i + 1, statusCol + 1).setValue(newStatus);
-                if (remarksCol !== -1) sheet.getRange(i + 1, remarksCol + 1).setValue(newRemarks);
-                else {
-                    // Create remarks column if it doesn't exist
-                    const lastCol = sheet.getLastColumn();
-                    sheet.getRange(1, lastCol + 1).setValue("remarks");
-                    sheet.getRange(i + 1, lastCol + 1).setValue(newRemarks);
+                // [FIX]: Robustness - Ensure we don't accidentally revert to Pending if already Approved/Rejected
+                const currentStatus = rawData[i][headers.indexOf("status")];
+                if (newStatus === "Pending" && (currentStatus === "Approved" || currentStatus === "Rejected")) {
+                    return createResponse({ result: "error", error: "Cannot revert to Pending from Approved/Rejected status." });
                 }
 
-                // 2. Prepare Data for Email
-                const registrationType = rawData[i][headers.indexOf("registrationType")] || "Individual";
-                const candidateName = rawData[i][headers.indexOf("firstName")] + " " + rawData[i][headers.indexOf("lastName")];
-                const teamName = rawData[i][headers.indexOf("teamName")];
-                const identifier = registrationType === "Individual" ? candidateName : teamName;
-                const candidateEmail = registrationType === "Individual" 
-                    ? rawData[i][headers.indexOf("email")] 
-                    : rawData[i][headers.indexOf("teamLeaderEmail")];
-
-                // 3. Send Professional Notification
-                if (candidateEmail) {
-                    let subject = "";
-                    let customMessage = "";
-                    
-                    if (newStatus === 'Approved') {
-                        subject = "Phase 1 Approved - Codekarx Hackathon";
-                        customMessage = "Your PPT is approved, please send your GitHub link and README file for Phase 2.";
-                    } else if (newStatus === 'Rejected') {
-                        subject = "Application Status Update - Codekarx Hackathon";
-                        customMessage = "We regret to inform you that your project has been rejected.";
-                    } else {
-                        subject = "Application Status Update";
-                        customMessage = `Your status has been updated to: ${newStatus}`;
-                    }
-
-                    const body = `Hi ${identifier},\n\n${customMessage}\n\n${newRemarks ? `HR Remarks: ${newRemarks}\n\n` : ''}Best Regards,\nCodekarx HR Team`;
-                    
-                    try {
-                        GmailApp.sendEmail(candidateEmail, subject, body, {
-                            from: "anjali.patel@unaitech.com"
-                        });
-                    } catch (err) {
-                        MailApp.sendEmail(candidateEmail, subject, body);
-                    }
+                const statusCol = headers.indexOf("status");
+                const remarksCol = headers.indexOf("remarks");
+                if (statusCol !== -1) appSheet.getRange(i + 1, statusCol + 1).setValue(newStatus);
+                if (remarksCol !== -1) appSheet.getRange(i + 1, remarksCol + 1).setValue(newRemarks);
+                
+                const emails = [];
+                const regType = rawData[i][headers.indexOf("registrationType")];
+                if (regType === "Individual") {
+                  emails.push(rawData[i][headers.indexOf("email")]);
+                } else {
+                  ["teamLeaderEmail", "member1Email", "member2Email", "member3Email", "member4Email"].forEach(f => {
+                    const idx = headers.indexOf(f);
+                    if (idx !== -1 && rawData[i][idx]) emails.push(rawData[i][idx]);
+                  });
                 }
+                
+                const uniqueEmails = [...new Set(emails.filter(e => e && e.toString().trim() !== ""))];
+                const projectName = rawData[i][headers.indexOf("projectName")];
 
+                if (uniqueEmails.length > 0) {
+                    const subject = (newStatus === 'Approved') ? `Phase 1 Approved - ${projectName}` : (newStatus === 'Rejected' ? `Status Update (Rejected) - ${projectName}` : `Status Update - ${projectName}`);
+                    const body = `Hi,\n\nYour application status for '${projectName}' (ID: ${rowRegId}) has been updated to: ${newStatus}.\n\nRemarks: ${newRemarks || "No remarks provided."}\n\nBest Regards,\nCodekarx Team`;
+                    uniqueEmails.forEach(email => { try { GmailApp.sendEmail(email.toString(), subject, body); } catch (e) {} });
+                }
+                
                 return createResponse({ result: "success", data: { id: targetId, status: newStatus, remarks: newRemarks } });
             }
         }
+        return createResponse({ result: "error", error: "Candidate not found with ID: " + targetId });
+    }
 
-        // --- MOCK HANDLER FOR TESTING ---
-        if (targetId === "12345") {
-            const identifier = "Anjali";
-            const candidateEmail = "komallarna06@gmail.com";
-            const newStatus = data.status;
-            const newRemarks = data.remarks || "";
+    if (action === "update_phase") {
+        const newPhase = parseInt(data.currentPhase);
+        settingsSheet.getRange(2, 1).setValue(newPhase);
 
-            let subject = "";
-            let customMessage = "";
-            if (newStatus === 'Approved') {
-                subject = "Phase 1 Approved - Codekarx Hackathon";
-                customMessage = "Your PPT is approved, please send your GitHub link and README file for Phase 2.";
-            } else if (newStatus === 'Rejected') {
-                subject = "Application Status Update - Codekarx Hackathon";
-                customMessage = "We regret to inform you that your project has been rejected.";
-            } else {
-                subject = "Application Status Update";
-                customMessage = `Your status has been updated to: ${newStatus}`;
-            }
-
-            const body = `Hi ${identifier},\n\n${customMessage}\n\n${newRemarks ? `HR Remarks: ${newRemarks}\n\n` : ''}Best Regards,\nCodekarx HR Team`;
+        if (newPhase === 2) {
+            const raw = appSheet.getDataRange().getValues();
+            const headers = raw[0];
             
-            try {
-                GmailApp.sendEmail(candidateEmail, subject, body, { from: "anjali.patel@unaitech.com" });
-            } catch (err) {
-                MailApp.sendEmail(candidateEmail, subject, body);
-            }
-
-            return createResponse({ result: "success", data: { id: "12345", status: newStatus, remarks: newRemarks } });
-        }
-
-        return createResponse({ result: "error", error: "Candidate not found" });
-    }
-
-    // --- Helper: Get Target Folder ---
-    function getCandidateFolder(registrationType, identifier) {
-        const rootFolderName = "Applications";
-        let rootFolder;
-        const rootFolders = DriveApp.getFoldersByName(rootFolderName);
-        rootFolder = rootFolders.hasNext() ? rootFolders.next() : DriveApp.createFolder(rootFolderName);
-
-        let typeFolder;
-        const typeFolders = rootFolder.getFoldersByName(registrationType);
-        typeFolder = typeFolders.hasNext() ? typeFolders.next() : rootFolder.createFolder(registrationType);
-
-        let candidateFolder;
-        const candidateFolders = typeFolder.getFoldersByName(identifier);
-        candidateFolder = candidateFolders.hasNext() ? candidateFolders.next() : typeFolder.createFolder(identifier);
-
-        return candidateFolder;
-    }
-
-    // --- MOCK INJECTION HELPER ---
-    function handleMockSubmission(phase) {
-        const identifier = "Anjali";
-        const candidateEmail = "komallarna06@gmail.com";
-        const candidateFolder = getCandidateFolder("Individual", identifier);
-
-        if (phase === 1) {
-             if (data.projectDescription) {
-                 const descFile = candidateFolder.createFile("project_description.txt", data.projectDescription, MimeType.PLAIN_TEXT);
-                 descFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-             }
-             if (payload.files && payload.files.ppt) {
-                 const pptData = payload.files.ppt;
-                 const blob = Utilities.newBlob(Utilities.base64Decode(pptData.base64), pptData.type, pptData.name);
-                 const file = candidateFolder.createFile(blob);
-                 file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-             }
-             const subject = "Phase 1 Submission Received - Codekarx Hackathon";
-             const body = `Hi ${identifier},\n\nWe have successfully received your project description and presentation for Phase 1. Your unique code is ${data.registrationId}.\n\nGood luck,\nCodekarx HR Team`;
-             
-             try {
-                 GmailApp.sendEmail(candidateEmail, subject, body, {
-                    from: "anjali.patel@unaitech.com"
-                 });
-             } catch (err) {
-                 MailApp.sendEmail(candidateEmail, subject, body);
-             }
-
-             return createResponse({ result: "success", message: "Phase 1 Mock Uploaded" });
-        } else {
-             if (data.githubRepoLink) {
-                 const ghFile = candidateFolder.createFile("github_link.txt", data.githubRepoLink, MimeType.PLAIN_TEXT);
-                 ghFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-             }
-             if (payload.files) {
-                 if (payload.files.readme) {
-                     const readmeData = payload.files.readme;
-                     const blob = Utilities.newBlob(Utilities.base64Decode(readmeData.base64), readmeData.type, readmeData.name);
-                     const file = candidateFolder.createFile(blob);
-                     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-                 }
-                 if (payload.files.finalZip) {
-                     const zipData = payload.files.finalZip;
-                     const blob = Utilities.newBlob(Utilities.base64Decode(zipData.base64), zipData.type, zipData.name);
-                     const file = candidateFolder.createFile(blob);
-                     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-                 }
-             }
-             return createResponse({ result: "success", message: "Phase 2 Mock Uploaded" });
-        }
-    }
-
-    // --- ACTION: SUBMIT PHASE 1 ---
-    if (action === "submit_phase1") {
-        if (data.registrationId === '12345') return handleMockSubmission(1);
-
-        const sheet = ss.getSheetByName(APP_SHEET_NAME) || ss.insertSheet(APP_SHEET_NAME);
-        const rawData = sheet.getDataRange().getValues();
-        const headers = rawData[0];
-        const idCol = headers.indexOf("registrationId");
-
-        for (let i = 1; i < rawData.length; i++) {
-            if (rawData[i][idCol] === data.registrationId) {
-                const registrationType = rawData[i][headers.indexOf("registrationType")] || "Individual";
-                const candidateName = rawData[i][headers.indexOf("firstName")] + " " + rawData[i][headers.indexOf("lastName")];
-                const teamName = rawData[i][headers.indexOf("teamName")];
-                const identifier = registrationType === "Individual" ? candidateName : teamName;
-
-                const candidateFolder = getCandidateFolder(registrationType, identifier);
-
-                let descriptionUrl = "";
-                if (data.projectDescription) {
-                    const descFile = candidateFolder.createFile("project_description.txt", data.projectDescription, MimeType.PLAIN_TEXT);
-                    descFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-                    descriptionUrl = descFile.getUrl();
+            const emailSet = new Set();
+            raw.slice(1).forEach(row => {
+                const regType = row[headers.indexOf("registrationType")];
+                if (regType === "Individual") {
+                    const e = row[headers.indexOf("email")];
+                    if (e) emailSet.add(e.toString().trim());
+                } else {
+                    ["teamLeaderEmail", "member1Email", "member2Email", "member3Email", "member4Email"].forEach(f => {
+                        const idx = headers.indexOf(f);
+                        if (idx !== -1 && row[idx]) emailSet.add(row[idx].toString().trim());
+                    });
                 }
+            });
 
-                let pptUrl = "";
-                if (payload.files && payload.files.ppt) {
-                    const pptData = payload.files.ppt;
-                    const blob = Utilities.newBlob(Utilities.base64Decode(pptData.base64), pptData.type, pptData.name);
-                    const file = candidateFolder.createFile(blob);
-                    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-                    pptUrl = file.getUrl();
-                }
-
-                sheet.getRange(i + 1, headers.indexOf("projectDescription") + 1).setValue(data.projectDescription);
-                sheet.getRange(i + 1, headers.indexOf("descriptionUrl") + 1).setValue(descriptionUrl);
-                sheet.getRange(i + 1, headers.indexOf("pptUrl") + 1).setValue(pptUrl);
-                sheet.getRange(i + 1, headers.indexOf("phase1SubmittedAt") + 1).setValue(new Date());
-
-                const candidateEmail = registrationType === "Individual" 
-                    ? rawData[i][headers.indexOf("email")] 
-                    : rawData[i][headers.indexOf("teamLeaderEmail")];
-                
-                if (candidateEmail) {
-                    const subject = "Phase 1 Submission Received - Codekarx Hackathon";
-                    const body = `Hi ${identifier},\n\nWe have successfully received your project description and presentation for Phase 1. Your unique code is ${data.registrationId}.\n\nGood luck,\nCodekarx HR Team`;
-                    
-                    try {
-                        GmailApp.sendEmail(candidateEmail, subject, body, {
-                            from: "anjali.patel@unaitech.com"
-                        });
-                    } catch (err) {
-                        MailApp.sendEmail(candidateEmail, subject, body);
-                    }
-                }
-
-                return createResponse({ result: "success", message: "Phase 1 Updated" });
+            const uniqueEmails = Array.from(emailSet).filter(e => e !== "");
+            if (uniqueEmails.length > 0) {
+                const subject = "Phase 2 is now LIVE - Codekarx Hackathon";
+                const body = `Hi,\n\nWe are excited to announce that Phase 2 is now OPEN!\n\nYou can now log in to the portal using your Unique Access Code or Transaction ID to upload your final Github Link and README.\n\nGood luck!\nCodekarx Team`;
+                uniqueEmails.forEach(email => { try { GmailApp.sendEmail(email, subject, body); } catch(e) {} });
             }
         }
-        return createResponse({ result: "error", error: "Candidate not found" });
-    }
-
-    // --- ACTION: SUBMIT PHASE 2 ---
-    if (action === "submit_phase2") {
-        if (data.registrationId === '12345') return handleMockSubmission(2);
-
-        const sheet = ss.getSheetByName(APP_SHEET_NAME);
-        const rawData = sheet.getDataRange().getValues();
-        const headers = rawData[0];
-        const idCol = headers.indexOf("registrationId");
-
-        for (let i = 1; i < rawData.length; i++) {
-            if (rawData[i][idCol] === data.registrationId) {
-                const registrationType = rawData[i][headers.indexOf("registrationType")] || "Individual";
-                const candidateName = rawData[i][headers.indexOf("firstName")] + " " + rawData[i][headers.indexOf("lastName")];
-                const teamName = rawData[i][headers.indexOf("teamName")];
-                const identifier = registrationType === "Individual" ? candidateName : teamName;
-
-                const candidateFolder = getCandidateFolder(registrationType, identifier);
-
-                let githubUrl = "";
-                if (data.githubRepoLink) {
-                    const ghFile = candidateFolder.createFile("github_link.txt", data.githubRepoLink, MimeType.PLAIN_TEXT);
-                    ghFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-                    githubUrl = ghFile.getUrl();
-                }
-
-                let readmeUrl = "";
-                let zipUrl = "";
-                if (payload.files) {
-                    if (payload.files.readme) {
-                        const readmeData = payload.files.readme;
-                        const blob = Utilities.newBlob(Utilities.base64Decode(readmeData.base64), readmeData.type, readmeData.name);
-                        const file = candidateFolder.createFile(blob);
-                        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-                        readmeUrl = file.getUrl();
-                    }
-                    if (payload.files.finalZip) {
-                        const zipData = payload.files.finalZip;
-                        const blob = Utilities.newBlob(Utilities.base64Decode(zipData.base64), zipData.type, zipData.name);
-                        const file = candidateFolder.createFile(blob);
-                        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-                        zipUrl = file.getUrl();
-                    }
-                }
-
-                sheet.getRange(i + 1, headers.indexOf("githubRepoLink") + 1).setValue(data.githubRepoLink);
-                sheet.getRange(i + 1, headers.indexOf("githubUrl") + 1).setValue(githubUrl);
-                sheet.getRange(i + 1, headers.indexOf("readmeUrl") + 1).setValue(readmeUrl);
-                sheet.getRange(i + 1, headers.indexOf("finalProjectZipUrl") + 1).setValue(zipUrl);
-                sheet.getRange(i + 1, headers.indexOf("phase2SubmittedAt") + 1).setValue(new Date());
-                sheet.getRange(i + 1, headers.indexOf("isCompleted") + 1).setValue(true);
-
-                return createResponse({ result: "success", message: "Phase 2 Updated" });
-            }
-        }
-        return createResponse({ result: "error", error: "Candidate not found" });
+        return createResponse({ result: "success", phase: newPhase });
     }
 
     return createResponse({ result: "error", error: "Invalid action" });

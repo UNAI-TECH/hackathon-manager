@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,21 +88,19 @@ interface Candidate {
   member4Email?: string;
   teamMembers?: TeamMember[];
 
-  phase1?: {
-    projectDescription: string;
-    descriptionUrl?: string;
-    pptUrl?: string;
-    submittedAt: string;
-  };
+  // Project Info (Phase 1)
+  projectDescription?: string;
+  descriptionUrl?: string;
+  pptUrl?: string;
+  phase1SubmittedAt?: string;
 
-  phase2?: {
-    githubRepoLink: string;
-    githubUrl?: string; // New field
-    readmeUrl?: string;
-    finalProjectZipUrl?: string;
-    submittedAt: string;
-    isCompleted: boolean;
-  };
+  // Project Info (Phase 2)
+  githubRepoLink?: string;
+  githubUrl?: string;
+  readmeUrl?: string;
+  finalProjectZipUrl?: string;
+  phase2SubmittedAt?: string;
+  isCompleted?: boolean | string;
 }
 
 interface CandidatesPageProps {
@@ -112,6 +110,7 @@ interface CandidatesPageProps {
 
 const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [trackFilter, setTrackFilter] = useState<string>(filterTrack || "All");
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [pendingStatusChange, setPendingStatusChange] = useState<{ id: string, status: string, name: string } | null>(null);
@@ -119,6 +118,14 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { candidates, isPending, isFetching, refetch, updateLocalCache } = useGlobalData();
+
+  // Debounce search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status, remarks }: { id: string, status: string, remarks: string }) => candidateApi.updateStatus(id, status, remarks),
@@ -141,11 +148,11 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
     const transId = c.transactionId || '';
 
     const matchesSearch =
-      name.toLowerCase().includes(search.toLowerCase()) ||
-      email.toLowerCase().includes(search.toLowerCase()) ||
-      c.registrationId.toLowerCase().includes(search.toLowerCase()) ||
-      projectName.toLowerCase().includes(search.toLowerCase()) ||
-      transId.toLowerCase().includes(search.toLowerCase());
+      name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      email.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      c.registrationId.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      projectName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      transId.toLowerCase().includes(debouncedSearch.toLowerCase());
 
     const matchesTrack = trackFilter === "All" || c.track === trackFilter;
 
@@ -159,7 +166,7 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
     }
 
     return matchesSearch && matchesTrack && matchesStatus;
-  }), [candidates, search, trackFilter, filterStatus]);
+  }), [candidates, debouncedSearch, trackFilter, filterStatus]);
 
   const handleStatusChangeClick = (c: Candidate, newStatus: string) => {
     if (newStatus === c.status) return;
@@ -279,12 +286,14 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm font-medium text-slate-600 truncate max-w-[150px] inline-block">{c.track}</span>
+                      <span className="text-sm font-medium text-slate-600 truncate max-w-[150px] inline-block">
+                        {c.track || (c as any).department || "No Track"}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px]">P1 ✓</Badge>
-                        {c.phase2?.isCompleted ? (
+                        {c.isCompleted || c.githubRepoLink ? (
                           <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px]">P2 ✓</Badge>
                         ) : (
                           <Badge variant="secondary" className="bg-slate-100 text-slate-400 border-slate-200 text-[10px]">P2 -</Badge>
@@ -338,7 +347,7 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
                     <DialogTitle className="text-2xl font-bold">
                       {selectedCandidate.registrationType === 'Individual' ? `${selectedCandidate.firstName} ${selectedCandidate.lastName}` : selectedCandidate.teamName}
                     </DialogTitle>
-                    <p className="text-indigo-100 text-sm">{selectedCandidate.track}</p>
+                    <p className="text-indigo-100 text-sm">{selectedCandidate.track || (selectedCandidate as any).department}</p>
                   </div>
                   <Badge className={selectedCandidate.status === 'Approved' ? 'bg-emerald-500' : selectedCandidate.status === 'Rejected' ? 'bg-rose-500' : 'bg-amber-500'}>
                     {selectedCandidate.status}
@@ -364,29 +373,55 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
                     </div>
                   </div>
 
-                  {selectedCandidate.registrationType === 'Team' && (
-                    <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-3">Team Members</label>
-                      <div className="space-y-2">
-                        {selectedCandidate.teamMembers?.map((m, i) => (
-                          <div key={i} className="flex justify-between text-sm">
-                            <span className="font-medium text-slate-700">{m.name}</span>
-                            <span className="text-slate-500">{m.email}</span>
+                  {selectedCandidate.registrationType === 'Team' ? (
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm col-span-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-3">Team Details</label>
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500 uppercase text-[10px] font-bold">Leader</span>
+                            <span className="font-semibold text-slate-700">{selectedCandidate.teamLeaderName || 'N/A'} ({selectedCandidate.teamLeaderEmail})</span>
                           </div>
-                        ))}
+                          {[1, 2, 3, 4].map(i => {
+                            const email = (selectedCandidate as any)[`member${i}Email`];
+                            if (!email) return null;
+                            return (
+                              <div key={i} className="flex justify-between text-sm py-2 border-t border-slate-100">
+                                <span className="text-slate-500 uppercase text-[10px] font-bold">Member {i}</span>
+                                <span className="font-semibold text-slate-700">{email}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</label>
+                        <p className="font-semibold text-slate-700">{selectedCandidate.phone || "N/A"}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email</label>
+                        <p className="font-semibold text-slate-700 truncate">{selectedCandidate.email}</p>
                       </div>
                     </div>
                   )}
 
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">College / Organization</label>
+                    <p className="font-semibold text-slate-700">{selectedCandidate.collegeCompany || "N/A"}</p>
+                  </div>
+
                   <div className="space-y-4">
                     <h3 className="text-lg font-bold text-slate-800 border-l-4 border-indigo-500 pl-3">Phase 1: Project Idea</h3>
                     <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                      <p className="text-sm text-slate-600 mb-4 whitespace-pre-wrap">{selectedCandidate.phase1?.projectDescription}</p>
+                      <p className="text-sm text-slate-600 mb-4 whitespace-pre-wrap">{selectedCandidate.projectDescription}</p>
 
                       <div className="flex gap-3 flex-wrap">
-                        {selectedCandidate.phase1?.descriptionUrl && (
+                        {selectedCandidate.descriptionUrl && (
                           <a
-                            href={selectedCandidate.phase1.descriptionUrl}
+                            href={selectedCandidate.descriptionUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl text-indigo-700 hover:bg-indigo-100 transition-colors flex-1"
@@ -397,9 +432,9 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
                           </a>
                         )}
 
-                        {selectedCandidate.phase1?.pptUrl && (
+                        {selectedCandidate.pptUrl && (
                           <a
-                            href={selectedCandidate.phase1.pptUrl}
+                            href={selectedCandidate.pptUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl text-indigo-700 hover:bg-indigo-100 transition-colors flex-1"
@@ -413,28 +448,30 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
                     </div>
                   </div>
 
-                  {selectedCandidate.phase2?.isCompleted ? (
+                  {selectedCandidate.isCompleted || selectedCandidate.githubRepoLink ? (
                     <div className="space-y-4">
                       <h3 className="text-lg font-bold text-slate-800 border-l-4 border-indigo-500 pl-3">Phase 2: Final Submission</h3>
                       <div className="space-y-3">
-                        <a
-                          href={selectedCandidate.phase2.githubRepoLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-colors"
-                        >
-                          <Github className="h-6 w-6" />
-                          <div className="flex-1">
-                            <p className="text-xs text-slate-400">GitHub Repository</p>
-                            <p className="text-sm font-semibold truncate">{selectedCandidate.phase2.githubRepoLink}</p>
-                          </div>
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                        {selectedCandidate.githubRepoLink && (
+                          <a
+                            href={selectedCandidate.githubRepoLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-colors"
+                          >
+                            <Github className="h-6 w-6" />
+                            <div className="flex-1">
+                              <p className="text-xs text-slate-400">GitHub Repository</p>
+                              <p className="text-sm font-semibold truncate">{selectedCandidate.githubRepoLink}</p>
+                            </div>
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
 
                         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                          {selectedCandidate.phase2.githubUrl && (
+                          {selectedCandidate.githubUrl && (
                             <a
-                              href={selectedCandidate.phase2.githubUrl}
+                              href={selectedCandidate.githubUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-colors"
@@ -444,9 +481,9 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
                               <ExternalLink className="h-3 w-3 ml-auto text-slate-400" />
                             </a>
                           )}
-                          {selectedCandidate.phase2.readmeUrl && (
+                          {selectedCandidate.readmeUrl && (
                             <a
-                              href={selectedCandidate.phase2.readmeUrl}
+                              href={selectedCandidate.readmeUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-colors"
@@ -456,9 +493,9 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
                               <ExternalLink className="h-3 w-3 ml-auto text-slate-400" />
                             </a>
                           )}
-                          {selectedCandidate.phase2.finalProjectZipUrl && (
+                          {selectedCandidate.finalProjectZipUrl && (
                             <a
-                              href={selectedCandidate.phase2.finalProjectZipUrl}
+                              href={selectedCandidate.finalProjectZipUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-colors"

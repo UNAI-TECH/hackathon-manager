@@ -91,7 +91,7 @@ const Dashboard = () => {
         const approvedCount = displayData.filter((c: any) => c.status === "Approved").length;
         const rejectedCount = displayData.filter((c: any) => c.status === "Rejected").length;
         const p1Pending = displayData.filter((c: any) => !c.status || c.status === "Pending").length;
-        const p2Completed = displayData.filter((c: any) => c.phase2?.isCompleted).length;
+        const p2Completed = displayData.filter((c: any) => c.isCompleted || c.githubRepoLink).length;
 
         return { total, individualCount, teamCount, approvedCount, rejectedCount, p1Pending, p2Completed };
     }, [displayData]);
@@ -107,7 +107,7 @@ const Dashboard = () => {
 
     const trackData = useMemo(() => TRACKS.map((track) => ({
         name: track,
-        count: displayData.filter((c: any) => c.department === track).length,
+        count: displayData.filter((c: any) => (c.track || c.department) === track).length,
     })), [displayData]);
 
     const phaseData = useMemo(() => [
@@ -332,8 +332,8 @@ const Dashboard = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {candidates.slice(0, 5).length > 0 ? (
-                                    candidates.slice(0, 5).map((c: any) => (
+                                {candidates.slice().reverse().slice(0, 5).length > 0 ? (
+                                    candidates.slice().reverse().slice(0, 5).map((c: any) => (
                                         <tr key={c._id || c.registrationId} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
@@ -351,7 +351,7 @@ const Dashboard = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-xs font-medium text-slate-600">
-                                                    {c.department}
+                                                    {c.track || c.department}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
