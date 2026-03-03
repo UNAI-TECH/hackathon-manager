@@ -147,15 +147,6 @@ const Dashboard = () => {
                     </p>
                 </div>
                 <div className="flex gap-4 items-center">
-                    <Button
-                        onClick={() => setIsPhaseDialogOpen(true)}
-                        disabled={isUpdatingPhase}
-                        className={`${currentPhase === 1 ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
-                    >
-                        {isUpdatingPhase ? "Processing..." : (currentPhase === 1 ? "Start Phase 2 Registration" : "Revert to Phase 1")}
-                        {!isUpdatingPhase && <ArrowRight className="h-4 w-4 ml-2" />}
-                    </Button>
-
                     {isFetching && (
                         <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full animate-pulse border border-indigo-100">
                             <Clock className="h-3 w-3 animate-spin" />

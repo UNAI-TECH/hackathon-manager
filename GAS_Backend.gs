@@ -26,10 +26,12 @@ const APP_HEADERS = [
   "teamName",
   "teamLeaderName",
   "teamLeaderEmail",
+  "member1Name",
   "member1Email",
+  "member2Name",
   "member2Email",
+  "member3Name",
   "member3Email",
-  "member4Email",
   "projectDescription",
   "pptUrl",
   "readmeUrl",
@@ -303,17 +305,29 @@ function handleRequest(payload) {
         const uniqueEmails = [...new Set(emails.filter(e => e && e.toString().trim() !== ""))];
         const projectName = rawData[i][headers.indexOf("projectName")];
 
+        // ⚠️ REPLACE with your actual deployed frontend URL
+        const APP_URL = "https://codekarx.netlify.app"; // or your custom domain
+        const phase2Link = `${APP_URL}/phase2?id=${rowRegId}`;
+
         if (uniqueEmails.length > 0) {
-          const subject = newStatus === "Approved"
-            ? `Phase 1 Approved – ${projectName}`
-            : newStatus === "Rejected"
-            ? `Status Update (Rejected) – ${projectName}`
-            : `Status Update – ${projectName}`;
-          const body = `Hi,\n\nYour application for '${projectName}' (ID: ${rowRegId}) has been updated to: ${newStatus}.\n\nRemarks: ${newRemarks || "No remarks provided."}\n\nBest Regards,\nCodekarx Team`;
+          let subject, body;
+
+          if (newStatus === "Approved") {
+            subject = `🎉 Congratulations! You're Selected – ${projectName}`;
+            body = `Hi,\n\nGreat news! Your Phase 1 submission for '${projectName}' has been APPROVED! 🎉\n\nYou are now eligible to participate in Phase 2.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📎 PHASE 2 SUBMISSION LINK:\n${phase2Link}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nIMPORTANT:\n• This link is unique to your registration. Do NOT share it.\n• Click the link above to access and submit your Phase 2 project.\n• Submit your GitHub repository link, README, and source code.\n\nRemarks from our team: ${newRemarks || "Well done! We look forward to your final submission."}\n\nBest of luck!\nCodekarx Team`;
+          } else if (newStatus === "Rejected") {
+            subject = `Codekarx – Status Update for ${projectName}`;
+            body = `Hi,\n\nThank you for participating in Codekarx Hackathon!\n\nAfter careful review, your Phase 1 submission for '${projectName}' was not selected to proceed to Phase 2.\n\nRemarks: ${newRemarks || "Thank you for your effort. Keep building!"}\n\nWe encourage you to keep innovating and look forward to seeing you in future editions.\n\nBest Regards,\nCodekarx Team`;
+          } else {
+            subject = `Status Update – ${projectName}`;
+            body = `Hi,\n\nYour application for '${projectName}' (ID: ${rowRegId}) has been updated to: ${newStatus}.\n\nRemarks: ${newRemarks || "No remarks provided."}\n\nBest Regards,\nCodekarx Team`;
+          }
+
           uniqueEmails.forEach(email => {
             try { GmailApp.sendEmail(email.toString(), subject, body); } catch (e) {}
           });
         }
+
 
         return createResponse({ result: "success", data: { id: targetId, status: newStatus, remarks: newRemarks } });
       }

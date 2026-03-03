@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AuthPage from "@/pages/AuthPage";
 import CandidateForm from "@/pages/CandidateForm";
+import Phase2Form from "@/pages/Phase2Form";
 import DashboardLayout from "./components/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
 import Candidates from "@/pages/Candidates";
@@ -43,10 +44,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<CandidateForm />} />
             <Route path="/login" element={<AuthPage />} />
-            <Route
-              path="/candidate-form"
-              element={<CandidateForm />}
-            />
+            <Route path="/candidate-form" element={<CandidateForm />} />
+            <Route path="/phase2" element={<Phase2Form />} />
             <Route
               path="/admin/*"
               element={
