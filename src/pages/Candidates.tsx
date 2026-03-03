@@ -473,8 +473,37 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
                 {pendingStatusChange?.status}
               </Badge>
             </p>
+
+            {/* Quick P2 Review in Action Option */}
+            {(() => {
+              const c = candidates.find(curr => curr._id === pendingStatusChange?.id);
+              if (!c || (!c.githubRepoLink && !c.readmeUrl && !c.sourceCodeUrl)) return null;
+              return (
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Phase 2 Review</p>
+                  <div className="flex flex-wrap gap-2">
+                    {c.githubRepoLink && (
+                      <a href={c.githubRepoLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-md hover:bg-slate-800 transition-colors">
+                        <Github className="h-3 w-3" /> Repo
+                      </a>
+                    )}
+                    {c.readmeUrl && (
+                      <a href={c.readmeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 text-slate-700 text-[10px] font-bold rounded-md hover:border-indigo-300 transition-colors">
+                        <FileText className="h-3 w-3 text-indigo-600" /> README
+                      </a>
+                    )}
+                    {c.sourceCodeUrl && (
+                      <a href={c.sourceCodeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 text-slate-700 text-[10px] font-bold rounded-md hover:border-indigo-300 transition-colors">
+                        <FolderOpen className="h-3 w-3 text-indigo-600" /> ZIP
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="space-y-2">
-              <Label htmlFor="remarks" className="text-slate-700 font-semibold text-sm">Remarks (sent via email)</Label>
+              <Label htmlFor="remarks" className="text-slate-700 font-semibold text-sm">Remarks <span className="text-slate-400 font-normal">(Optional)</span></Label>
               <Textarea
                 id="remarks"
                 placeholder={pendingStatusChange?.status === "Rejected" ? "e.g., Project lacked sufficient detail..." : "e.g., Great concept! Looking forward to Phase 2."}
