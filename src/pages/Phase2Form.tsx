@@ -71,6 +71,7 @@ const Phase2Form = () => {
     const [errorMsg, setErrorMsg] = useState("");
 
     const [githubLink, setGithubLink] = useState("");
+    const [notes, setNotes] = useState("");
     const [files, setFiles] = useState<Record<string, File | null>>({});
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -113,14 +114,14 @@ const Phase2Form = () => {
                 : `${candidate.teamName}_${candidate.teamLeaderEmail}`.replace(/[^a-zA-Z0-9.@_-]/g, "_");
 
             const payload: any = {
-                data: { registrationId: candidate.registrationId, githubRepoLink: githubLink, candidateIdentity: identity },
+                data: {
+                    registrationId: candidate.registrationId,
+                    githubRepoLink: githubLink,
+                    candidateIdentity: identity,
+                    notes: notes
+                },
                 files: {}
             };
-            if (files.readme) {
-                const fd = await toBase64(files.readme);
-                fd.name = `${identity}_README.${fd.type.split("/")[1]}`;
-                payload.files.readme = fd;
-            }
             if (files.finalZip) {
                 const fd = await toBase64(files.finalZip);
                 fd.name = `${identity}_SOURCE.zip`;
@@ -321,52 +322,50 @@ const Phase2Form = () => {
                                 </div>
 
                                 <CardContent className="p-4 sm:p-8 md:p-10 space-y-6 sm:space-y-8">
-                                    {/* GitHub Link */}
-                                    <div className="space-y-3">
-                                        <Label className="text-xs font-black uppercase tracking-widest text-slate-500">GitHub Repository Link *</Label>
-                                        <div className="relative">
-                                            <Github className="absolute left-4 top-4 h-5 w-5 text-indigo-400" />
-                                            <Input
-                                                type="url"
-                                                placeholder="https://github.com/username/project"
-                                                value={githubLink}
-                                                onChange={e => setGithubLink(e.target.value)}
-                                                className="h-14 pl-12 rounded-2xl border-slate-200 font-bold text-slate-900 focus:ring-4 focus:ring-indigo-100 bg-slate-50"
-                                                required
-                                            />
+                                    {/* GitHub Link & Notes */}
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="space-y-3">
+                                            <Label className="text-xs font-black uppercase tracking-widest text-slate-500">GitHub Repository Link *</Label>
+                                            <div className="relative">
+                                                <Github className="absolute left-4 top-4 h-5 w-5 text-indigo-400" />
+                                                <Input
+                                                    type="url"
+                                                    placeholder="https://github.com/username/project"
+                                                    value={githubLink}
+                                                    onChange={e => setGithubLink(e.target.value)}
+                                                    className="h-14 pl-12 rounded-2xl border-slate-200 font-bold text-slate-900 focus:ring-4 focus:ring-indigo-100 bg-slate-50"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Notes / Message (Optional)</Label>
+                                            <div className="relative">
+                                                <FileText className="absolute left-4 top-4 h-5 w-5 text-indigo-400" />
+                                                <Input
+                                                    placeholder="Any notes or message for the team..."
+                                                    value={notes}
+                                                    onChange={e => setNotes(e.target.value)}
+                                                    className="h-14 pl-12 rounded-2xl border-slate-200 font-bold text-slate-900 focus:ring-4 focus:ring-indigo-100 bg-slate-50"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 
                                     {/* File uploads */}
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        {/* README */}
-                                        <div className="space-y-3">
-                                            <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                                                Project README (PDF/DOC) *
-                                            </Label>
-                                            <label className="relative flex flex-col items-center justify-center gap-2 h-24 sm:h-28 cursor-pointer px-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all overflow-hidden">
-                                                <FileText className="h-6 w-6 sm:h-7 sm:w-7 text-indigo-400" />
-                                                <span className="text-xs sm:text-sm font-bold text-slate-500 truncate text-center px-2">
-                                                    {files.readme ? files.readme.name : "Select README file"}
-                                                </span>
-                                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer"
-                                                    onChange={e => setFiles(p => ({ ...p, readme: e.target.files?.[0] || null }))} required />
-                                            </label>
-                                        </div>
-                                        {/* ZIP */}
-                                        <div className="space-y-3">
-                                            <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                                                Source Code ZIP (Optional)
-                                            </Label>
-                                            <label className="relative flex flex-col items-center justify-center gap-2 h-24 sm:h-28 cursor-pointer px-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-400 transition-all overflow-hidden">
-                                                <FileArchive className="h-6 w-6 sm:h-7 sm:w-7 text-slate-400" />
-                                                <span className="text-xs sm:text-sm font-bold text-slate-400 truncate text-center px-2">
-                                                    {files.finalZip ? files.finalZip.name : "Select ZIP file"}
-                                                </span>
-                                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer"
-                                                    onChange={e => setFiles(p => ({ ...p, finalZip: e.target.files?.[0] || null }))} />
-                                            </label>
-                                        </div>
+                                    <div className="space-y-3">
+                                        <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
+                                            Project ZIP (Optional)
+                                        </Label>
+                                        <label className="relative flex flex-col items-center justify-center gap-2 h-24 sm:h-28 cursor-pointer px-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all overflow-hidden group">
+                                            <FileArchive className="h-6 w-6 sm:h-7 sm:w-7 text-indigo-400 group-hover:scale-110 transition-transform" />
+                                            <span className="text-xs sm:text-sm font-bold text-slate-500 truncate text-center px-2">
+                                                {files.finalZip ? files.finalZip.name : "Select Source Code ZIP file"}
+                                            </span>
+                                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer"
+                                                onChange={e => setFiles(p => ({ ...p, finalZip: e.target.files?.[0] || null }))} />
+                                        </label>
                                     </div>
 
                                     <Button

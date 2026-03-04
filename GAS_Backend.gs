@@ -40,7 +40,8 @@ const APP_HEADERS = [
   "githubRepoLink",
   "phase2SubmittedAt",
   "isCompleted",
-  "collegeCompany"
+  "collegeCompany",
+  "notes"
 ];
 
 function doGet(e) {
@@ -253,7 +254,8 @@ function handleRequest(payload) {
           readmeUrl: data.readmeUrl || rowDataObj.readmeUrl,
           sourceCodeUrl: data.sourceCodeUrl || rowDataObj.sourceCodeUrl,
           phase2SubmittedAt: new Date(),
-          isCompleted: "TRUE"
+          isCompleted: "TRUE",
+          notes: data.notes || rowDataObj.notes
         };
 
         Object.keys(updates).forEach(key => {
@@ -284,7 +286,7 @@ function handleRequest(payload) {
 Your Final Round submission for the Codekarx Hackathon has been received! 🎉
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏆 FINAL ROUND SUBMISSION DETAILS
+FINAL ROUND SUBMISSION DETAILS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Project  : ${projectName}
 Track    : ${rowDataObj.track || "—"}
@@ -295,7 +297,7 @@ Submitted: ${submittedAt}
 
 Our panel will review your final submission and announce the results soon.
 
-You've made it to the Final Round — give it your best! 🚀
+You've made it to the Final Round — give it your best! 
 
 Warm regards,
 Codekarx Team`;
@@ -350,15 +352,15 @@ Codekarx Team`;
         const uniqueEmails = [...new Set(emails.filter(e => e && e.toString().trim() !== ""))];
         const projectName = rawData[i][headers.indexOf("projectName")];
 
-        const phase2Link = "https://codekarx.vercel.app/phase2";
+        const phase2Link = "https://phase.codekarx.com/phase2";
 
 
         if (uniqueEmails.length > 0) {
           let subject, body;
 
           if (newStatus === "Approved") {
-            subject = `🎉 Congratulations! You're Selected – ${projectName}`;
-            body = `Hi,\n\nGreat news! Your Phase 1 submission for '${projectName}' has been APPROVED! 🎉\n\nYou are now eligible to participate in Phase 2.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📎 PHASE 2 SUBMISSION LINK:\n${phase2Link}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nIMPORTANT:\n• This link is unique to your registration. Do NOT share it.\n• Click the link above to access and submit your Phase 2 project.\n• Submit your GitHub repository link, README, and source code.\n\nRemarks from our team: ${newRemarks || "Well done! We look forward to your final submission."}\n\nBest of luck!\nCodekarx Team`;
+            subject = ` Congratulations! You're Selected – ${projectName}`;
+            body = `Hi,\n\nGreat news! Your Phase 1 submission for '${projectName}' has been APPROVED! \n\nYou are now eligible to participate in Phase 2.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📎 PHASE 2 SUBMISSION LINK:\n${phase2Link}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nIMPORTANT:\n• This link is unique to your registration. Do NOT share it.\n• Click the link above to access and submit your Phase 2 project.\n• Submit your GitHub repository link, README, and source code.\n\nRemarks from our team: ${newRemarks || "Well done! We look forward to your final submission."}\n\nBest of luck!\nCodekarx Team`;
           } else if (newStatus === "Rejected") {
             subject = `Codekarx – Status Update for ${projectName}`;
             body = `Hi,\n\nThank you for participating in Codekarx Hackathon!\n\nAfter careful review, your Phase 1 submission for '${projectName}' was not selected to proceed to Phase 2.\n\nRemarks: ${newRemarks || "Thank you for your effort. Keep building!"}\n\nWe encourage you to keep innovating and look forward to seeing you in future editions.\n\nBest Regards,\nCodekarx Team`;

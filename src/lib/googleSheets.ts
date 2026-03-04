@@ -11,7 +11,7 @@ export interface CandidateData {
 }
 
 // User provided URL
-export const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbyL_ipJj1yDoSNJxPRDYxelt14Prwd8sCymtYrckg0YjtkZcLQThtwV0DBi2u3VPm2ESA/exec";
+export const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbwD0ayuEEHESnQ4JsPV4fJ1jxHqNm4lbCoWpA1AtRt_ss9M-rACvUpQHWK1y14BGW69/exec";
 
 export const googleSheets = {
 
