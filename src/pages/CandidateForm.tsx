@@ -398,8 +398,8 @@ const CandidateForm = () => {
             </p>
           </div>
 
-          <Card className="shadow-[0_20px_50px_rgba(8,112,184,0.07)] border-none bg-white/80 backdrop-blur-xl rounded-3xl sm:rounded-[2.5rem] overflow-hidden ring-1 ring-slate-200/50">
-            <CardHeader className={`${globalPhase === 1 ? "bg-indigo-600" : "bg-emerald-600"} text-white p-6 sm:p-10`}>
+          <Card className="shadow-[0_20px_50px_rgba(8,112,184,0.07)] border-none bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden ring-1 ring-slate-200/50">
+            <CardHeader className={`${globalPhase === 1 ? "bg-indigo-600" : "bg-emerald-600"} text-white p-5 sm:p-10`}>
               <CardTitle className="text-xl sm:text-3xl font-black flex items-center gap-3 tracking-tighter uppercase">
                 <Upload className="h-8 w-8" />
                 {globalPhase === 1 ? "New Registration" : "Phase 2 Portal"}
@@ -596,7 +596,7 @@ const CandidateForm = () => {
 
                 <Button
                   type="submit"
-                  className="w-full h-16 text-xl font-black rounded-3xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 tracking-[0.1em] uppercase bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
+                  className="w-full h-14 sm:h-16 text-lg sm:text-xl font-black rounded-2xl sm:rounded-3xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 tracking-tight sm:tracking-[0.1em] uppercase bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
                   disabled={loading}
                 >
                   {loading ? (
@@ -646,20 +646,20 @@ const CandidateForm = () => {
                       <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
                         {regType === "Individual" ? "Your Registered Email *" : "Team Leader Email *"}
                       </Label>
-                      <div className="flex gap-3">
+                      <div className="flex flex-col sm:flex-row gap-3">
                         <Input
                           type="email"
                           placeholder={regType === "Individual" ? "your@email.com" : "leader@email.com"}
                           value={lookupEmail}
                           onChange={(e) => setLookupEmail(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && handlePhase2Lookup()}
-                          className="h-14 rounded-2xl border-slate-200 font-bold text-lg text-indigo-600 placeholder:text-slate-300 focus:ring-4 focus:ring-indigo-100 flex-1"
+                          className="h-12 sm:h-14 rounded-xl sm:rounded-2xl border-slate-200 font-bold text-base sm:text-lg text-indigo-600 placeholder:text-slate-300 focus:ring-4 focus:ring-indigo-100 flex-1"
                         />
                         <Button
                           type="button"
                           onClick={handlePhase2Lookup}
                           disabled={lookupLoading || !lookupEmail.trim()}
-                          className="h-14 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-black text-white shrink-0"
+                          className="h-12 sm:h-14 px-6 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-black text-white shrink-0 uppercase tracking-widest text-xs sm:text-sm"
                         >
                           {lookupLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Look Up"}
                         </Button>
@@ -738,7 +738,7 @@ const CandidateForm = () => {
 
                     <Button
                       type="submit"
-                      className="w-full h-16 text-xl font-black rounded-3xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 tracking-[0.1em] uppercase bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"
+                      className="w-full h-14 sm:h-16 text-lg sm:text-xl font-black rounded-2xl sm:rounded-3xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 tracking-tight sm:tracking-[0.1em] uppercase bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"
                       disabled={loading}
                     >
                       {loading ? (
