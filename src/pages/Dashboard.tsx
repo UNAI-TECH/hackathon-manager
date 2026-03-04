@@ -8,8 +8,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useGlobalData } from "@/contexts/DataContext";
 import { Button } from "@/components/ui/button";
-import { RotateCw } from "lucide-react";
+import { RotateCw, Activity } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
     BarChart,
     Bar,
@@ -46,7 +48,7 @@ const TRACKS = [
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
 const Dashboard = () => {
-    const { candidates, isPending, isFetching, refetch } = useGlobalData();
+    const { candidates, isPending, isFetching, refetch, realTimeEnabled, toggleRealTime } = useGlobalData();
     const { toast } = useToast();
     const [currentPhase, setCurrentPhase] = useState<number>(1);
     const [isUpdatingPhase, setIsUpdatingPhase] = useState(false);
@@ -146,18 +148,37 @@ const Dashboard = () => {
                         <TrendingUp className="h-4 w-4 text-emerald-500" /> Codekarx Hackathon System Overview • Phase 1 & 2 Analytics
                     </p>
                 </div>
-                <div className="flex gap-4 items-center">
-                    {isFetching && (
-                        <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full animate-pulse border border-indigo-100">
-                            <Clock className="h-3 w-3 animate-spin" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Refreshing...</span>
-                        </div>
-                    )}
-                    {!isFetching && (
-                        <Button variant="ghost" size="sm" onClick={() => refetch()} className="text-slate-400 hover:text-indigo-600 h-8 w-8 p-0 rounded-full">
-                            <RotateCw className="h-4 w-4" />
-                        </Button>
-                    )}
+                <div className="flex gap-6 items-center bg-white/50 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-200/60 shadow-sm">
+                    <div className="flex items-center space-x-2">
+                        <Switch
+                            id="real-time-mode"
+                            checked={realTimeEnabled}
+                            onCheckedChange={toggleRealTime}
+                            className="data-[state=checked]:bg-emerald-500"
+                        />
+                        <Label htmlFor="real-time-mode" className="text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer flex items-center gap-1.5">
+                            {realTimeEnabled && <Activity className="h-3 w-3 text-emerald-500 animate-pulse" />}
+                            Live Updates
+                        </Label>
+                    </div>
+
+                    <div className="h-4 w-[1px] bg-slate-200" />
+
+                    <div className="flex gap-4 items-center">
+                        {isFetching && (
+                            <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full animate-pulse border border-indigo-100">
+                                <Clock className="h-3 w-3 animate-spin" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest">
+                                    {realTimeEnabled ? "Syncing..." : "Refreshing..."}
+                                </span>
+                            </div>
+                        )}
+                        {!isFetching && (
+                            <Button variant="ghost" size="sm" onClick={() => refetch()} className="text-slate-400 hover:text-indigo-600 h-8 w-8 p-0 rounded-full transition-all">
+                                <RotateCw className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
 

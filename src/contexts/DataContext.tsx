@@ -8,6 +8,8 @@ interface DataContextType {
     isFetching: boolean;
     refetch: () => void;
     updateLocalCache: (data: any[]) => void;
+    realTimeEnabled: boolean;
+    toggleRealTime: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -22,6 +24,20 @@ export const GlobalDataProvider = ({ children }: { children: React.ReactNode }) 
         }
     });
 
+    const [realTimeEnabled, setRealTimeEnabled] = useState(() => {
+        try {
+            return localStorage.getItem("codekarx_real_time") === "true";
+        } catch (e) {
+            return false;
+        }
+    });
+
+    const toggleRealTime = () => {
+        const newValue = !realTimeEnabled;
+        setRealTimeEnabled(newValue);
+        localStorage.setItem("codekarx_real_time", String(newValue));
+    };
+
     const { data: candidates, isPending, isFetching, refetch } = useQuery({
         queryKey: ["applications"],
         queryFn: async () => {
@@ -33,6 +49,8 @@ export const GlobalDataProvider = ({ children }: { children: React.ReactNode }) 
         staleTime: 5 * 60 * 1000,
         gcTime: 1000 * 60 * 60 * 24, // 24 hours
         initialData: cachedData.length > 0 ? cachedData : undefined,
+        refetchInterval: realTimeEnabled ? 10000 : 0, // Poll every 10 seconds if enabled
+        refetchIntervalInBackground: true,
     });
 
     // Derived state to ensure we always have SOMETHING to show if it ever existed
@@ -50,8 +68,10 @@ export const GlobalDataProvider = ({ children }: { children: React.ReactNode }) 
         isPending: isPending && displayCandidates.length === 0, // Only pending if NO data at all
         isFetching,
         refetch,
-        updateLocalCache
-    }), [displayCandidates, isPending, isFetching, refetch]);
+        updateLocalCache,
+        realTimeEnabled,
+        toggleRealTime
+    }), [displayCandidates, isPending, isFetching, refetch, realTimeEnabled]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

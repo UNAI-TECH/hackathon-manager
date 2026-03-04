@@ -9,8 +9,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users, Search, CheckCircle, Clock, ExternalLink, User,
-  Github, FileText, FileArchive, Trash2, Eye, FolderOpen, Download, XCircle
+  Github, FileText, FileArchive, Trash2, Eye, FolderOpen, Download, XCircle, Activity
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -80,7 +81,7 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
   const [remarks, setRemarks] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { candidates, isPending, isFetching, refetch, updateLocalCache } = useGlobalData();
+  const { candidates, isPending, isFetching, refetch, updateLocalCache, realTimeEnabled, toggleRealTime } = useGlobalData();
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -176,11 +177,37 @@ const Candidates = ({ filterStatus, filterTrack }: CandidatesPageProps) => {
           </h1>
           <p className="text-slate-500 text-sm sm:text-base">Manage registrations and project submissions</p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="bg-white">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex items-center gap-6 bg-white/50 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-200/60 shadow-sm mr-2">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="real-time-mode-candidates"
+                checked={realTimeEnabled}
+                onCheckedChange={toggleRealTime}
+                className="data-[state=checked]:bg-emerald-500 scale-90"
+              />
+              <Label htmlFor="real-time-mode-candidates" className="text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
+                {realTimeEnabled && <Activity className="h-3 w-3 text-emerald-500 animate-pulse" />}
+                Live
+              </Label>
+            </div>
+            <div className="h-4 w-[1px] bg-slate-200" />
+            <div className="flex items-center gap-2">
+              {isFetching && (
+                <div className="flex items-center gap-1.5 text-indigo-600 animate-pulse">
+                  <Clock className="h-3 w-3 animate-spin" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">Syncing</span>
+                </div>
+              )}
+              {!isFetching && (
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Idle</span>
+              )}
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="bg-white rounded-xl">
             <Search className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
           </Button>
-          <Button variant="outline" size="sm" className="bg-white">
+          <Button variant="outline" size="sm" className="bg-white rounded-xl">
             <Download className="mr-2 h-4 w-4" /> Export
           </Button>
         </div>
