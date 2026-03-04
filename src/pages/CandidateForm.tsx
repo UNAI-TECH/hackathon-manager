@@ -10,7 +10,16 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, FileText, Upload, Users, User, Github, FileArchive, AlertCircle } from "lucide-react";
 import { candidateApi } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ─── Confetti particle system ─────────────────────────────────────────────────
 const CONFETTI_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
@@ -145,6 +154,9 @@ const CandidateForm = () => {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [fetchedData, setFetchedData] = useState<any>(null);
 
+  const [showLookupError, setShowLookupError] = useState(false);
+  const [lookupErrorMsg, setLookupErrorMsg] = useState("");
+
   const [formData, setFormData] = useState(blankForm());
 
   // ─── Fetch global phase on mount ──────────────────────────────────────────
@@ -172,7 +184,8 @@ const CandidateForm = () => {
   // ─── Phase 2 email lookup ─────────────────────────────────────────────────
   const handlePhase2Lookup = async () => {
     if (!lookupEmail.trim()) {
-      toast({ title: "Enter Email", description: "Please enter your registered email address.", variant: "destructive" });
+      setLookupErrorMsg("Please enter your registered email address.");
+      setShowLookupError(true);
       return;
     }
     setLookupLoading(true);
@@ -188,7 +201,8 @@ const CandidateForm = () => {
         toast({ title: "Registration Found", description: `Project: ${data.projectName || "Untitled"}` });
       }
     } catch {
-      toast({ title: "Not Found", description: "No registration found for this email. Please check and try again.", variant: "destructive" });
+      setLookupErrorMsg("No registration found for this email. Please check your spelling and try again.");
+      setShowLookupError(true);
     } finally {
       setLookupLoading(false);
     }
@@ -758,6 +772,27 @@ const CandidateForm = () => {
             Powering the next generation of innovators • Codekarx 2026
           </div>
         </div>
+
+        <AlertDialog open={showLookupError} onOpenChange={setShowLookupError}>
+          <AlertDialogContent className="rounded-3xl border-none shadow-2xl bg-white/95 backdrop-blur-xl animate-in zoom-in-95 duration-200">
+            <AlertDialogHeader className="space-y-4">
+              <div className="mx-auto h-20 w-20 rounded-full bg-rose-50 flex items-center justify-center border-2 border-rose-100 mb-2">
+                <Lock className="h-10 w-10 text-rose-500" />
+              </div>
+              <AlertDialogTitle className="text-2xl font-black text-slate-900 text-center uppercase tracking-tight">
+                Access Required
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-500 font-bold text-center text-base leading-relaxed">
+                {lookupErrorMsg}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="sm:justify-center mt-4">
+              <AlertDialogAction className="h-14 px-10 rounded-2xl bg-indigo-600 hover:bg-slate-900 text-white font-black uppercase tracking-widest transition-all">
+                Try Again
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );

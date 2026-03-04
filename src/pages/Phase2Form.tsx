@@ -7,6 +7,15 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Github, FileText, FileArchive, Loader2, Lock, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { candidateApi } from "@/lib/api";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const toBase64 = (file: File) =>
     new Promise<{ base64: string; name: string; type: string }>((resolve, reject) => {
@@ -58,6 +67,8 @@ const Phase2Form = () => {
     const [lookupLoading, setLookupLoading] = useState(false);
     const [candidate, setCandidate] = useState<any>(null);
     const [denied, setDenied] = useState(false);
+    const [showError, setShowError] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
 
     const [githubLink, setGithubLink] = useState("");
     const [files, setFiles] = useState<Record<string, File | null>>({});
@@ -78,10 +89,12 @@ const Phase2Form = () => {
             } else if (data) {
                 setDenied(true);
             } else {
-                toast({ title: "Not Found", description: "No registration found for this email.", variant: "destructive" });
+                setErrorMsg("No registration found for this email. Please check your spelling and try again.");
+                setShowError(true);
             }
         } catch {
-            toast({ title: "Not Found", description: "No registration found for this email.", variant: "destructive" });
+            setErrorMsg("No registration found for this email. Please check your spelling and try again.");
+            setShowError(true);
         } finally {
             setLookupLoading(false);
         }
@@ -370,6 +383,27 @@ const Phase2Form = () => {
                         </form>
                     </div>
                 )}
+
+                <AlertDialog open={showError} onOpenChange={setShowError}>
+                    <AlertDialogContent className="rounded-3xl border-none shadow-2xl bg-white/95 backdrop-blur-xl animate-in zoom-in-95 duration-200">
+                        <AlertDialogHeader className="space-y-4">
+                            <div className="mx-auto h-20 w-20 rounded-full bg-rose-50 flex items-center justify-center border-2 border-rose-100 mb-2">
+                                <Lock className="h-10 w-10 text-rose-500" />
+                            </div>
+                            <AlertDialogTitle className="text-2xl font-black text-slate-900 text-center uppercase tracking-tight">
+                                Registration Not Found
+                            </AlertDialogTitle>
+                            <AlertDialogDescription className="text-slate-500 font-bold text-center text-base leading-relaxed">
+                                {errorMsg}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="sm:justify-center mt-4">
+                            <AlertDialogAction className="h-14 px-10 rounded-2xl bg-indigo-600 hover:bg-slate-900 text-white font-black uppercase tracking-widest transition-all">
+                                Try Again
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
                 <div className="mt-12 text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">
                     Powering the next generation of innovators • Codekarx 2026
